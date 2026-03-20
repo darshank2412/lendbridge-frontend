@@ -1,0 +1,40 @@
+{
+  "name": "micro-lending-platform",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-router-dom": "^6.26.0",
+    "@tanstack/react-query": "^5.51.21",
+    "axios": "^1.7.3",
+    "zustand": "^4.5.4",
+    "date-fns": "^3.6.0",
+    "recharts": "^2.12.7",
+    "clsx": "^2.1.1"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.1",
+    "vite": "^5.3.4",
+    "vitest": "^1.6.0",
+    "@vitest/coverage-v8": "^1.6.0",
+    "@vitest/ui": "^1.6.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.4.6",
+    "@testing-library/user-event": "^14.5.2",
+    "jsdom": "^24.1.0",
+    "tailwindcss": "^3.4.7",
+    "autoprefixer": "^10.4.19",
+    "postcss": "^8.4.40"
+  }
+}
