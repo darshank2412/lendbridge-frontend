@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { sendOtp, verifyOtp, register } from '../../api/services'
 import { useAuthStore } from '../../store/authStore'
 import { Alert, Field, Spinner } from '../../components/ui'
 
 const STEPS = { SEND_OTP: 0, VERIFY_OTP: 1, REGISTER: 2 }
+const OTP_TIMEOUT = 60
 
 const INCOME_BRACKETS = [
   'BELOW_2_LPA', '2_5_LPA', '5_10_LPA', '10_20_LPA', '20_50_LPA', 'ABOVE_50_LPA'
@@ -54,6 +55,11 @@ export default function RegisterPage() {
   const [userId, setUserId] = useState(null)
   const [redirecting, setRedirecting] = useState(false)
 
+  // OTP timer
+  const [timer, setTimer] = useState(OTP_TIMEOUT)
+  const [canResend, setCanResend] = useState(false)
+  const timerRef = useRef(null)
+
   const [otpForm, setOtpForm] = useState({
     identifier: '', countryCode: '+91', otpType: 'PHONE', purpose: 'REGISTRATION', role: 'BORROWER'
   })
@@ -65,6 +71,26 @@ export default function RegisterPage() {
     address: { line1: '', city: '', state: '', pincode: '' }
   })
 
+  const startTimer = () => {
+    setTimer(OTP_TIMEOUT)
+    setCanResend(false)
+    clearInterval(timerRef.current)
+    timerRef.current = setInterval(() => {
+      setTimer(prev => {
+        if (prev <= 1) {
+          clearInterval(timerRef.current)
+          setCanResend(true)
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+  }
+
+  useEffect(() => {
+    return () => clearInterval(timerRef.current)
+  }, [])
+
   const handleSendOtp = async (e) => {
     e.preventDefault()
     const errors = validateOtpForm(otpForm)
@@ -74,6 +100,7 @@ export default function RegisterPage() {
     try {
       await sendOtp(otpForm)
       setStep(STEPS.VERIFY_OTP)
+      startTimer()
     } catch (err) {
       const msg = err.response?.data?.message || 'Failed to send OTP. Please try again.'
       if (err.response?.status === 409) {
@@ -84,6 +111,16 @@ export default function RegisterPage() {
       } else {
         setError(msg)
       }
+    } finally { setLoading(false) }
+  }
+
+  const handleResendOtp = async () => {
+    setLoading(true); setError(''); setOtpCode('')
+    try {
+      await sendOtp(otpForm)
+      startTimer()
+    } catch (err) {
+      setError(err.response?.data?.message || 'Failed to resend OTP. Please try again.')
     } finally { setLoading(false) }
   }
 
@@ -99,6 +136,7 @@ export default function RegisterPage() {
       const uid = res.data?.data?.userId
       setUserId(uid)
       setRegForm(f => ({ ...f, role: otpForm.role, phoneNumber: otpForm.identifier }))
+      clearInterval(timerRef.current)
       setStep(STEPS.REGISTER)
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid OTP. Please try again.')
@@ -131,6 +169,13 @@ export default function RegisterPage() {
   }
 
   const fe = fieldErrors
+
+  // Timer color based on time left
+  const timerColor = timer <= 10
+    ? 'text-red-400'
+    : timer <= 30
+    ? 'text-yellow-400'
+    : 'text-gold-400'
 
   return (
     <div className="min-h-screen bg-ink-950 flex">
@@ -192,7 +237,6 @@ export default function RegisterPage() {
           <Alert type="error" message={error} />
           {error && <div className="mb-4" />}
 
-          {/* Redirecting banner */}
           {redirecting && (
             <div className="mb-4 p-3 rounded-lg bg-gold-500/10 border border-gold-500/30 text-center">
               <p className="text-gold-400 text-sm">Redirecting you to login in 3 seconds...</p>
@@ -238,11 +282,47 @@ export default function RegisterPage() {
                   onChange={e => setOtpCode(e.target.value)} />
                 {fe.otpCode && <p className="text-xs text-red-400 mt-1">{fe.otpCode}</p>}
               </Field>
+
               <p className="text-xs text-ink-400">Sent to +91 {otpForm.identifier}</p>
-              <button type="submit" className="btn-primary w-full" disabled={loading}>
+
+              {/* Timer section */}
+              <div className="rounded-lg bg-ink-900 border border-ink-700 p-3 text-center space-y-2">
+                {!canResend ? (
+                  <>
+                    <p className={`text-sm font-mono font-bold ${timerColor}`}>
+                      {String(Math.floor(timer / 60)).padStart(2, '0')}:{String(timer % 60).padStart(2, '0')}
+                    </p>
+                    <p className="text-xs text-ink-400">OTP expires in</p>
+                    {timer <= 10 && (
+                      <p className="text-xs text-red-400 font-medium animate-pulse">
+                        ⚠️ OTP expiring soon! Please enter it now.
+                      </p>
+                    )}
+                    {timer > 10 && timer <= 30 && (
+                      <p className="text-xs text-yellow-400">
+                        ⏳ Hurry up! OTP expires soon.
+                      </p>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <p className="text-xs text-red-400">OTP has expired</p>
+                    <button
+                      type="button"
+                      onClick={handleResendOtp}
+                      disabled={loading}
+                      className="text-sm text-gold-400 hover:text-gold-300 font-medium underline disabled:opacity-50"
+                    >
+                      {loading ? <Spinner size="sm" /> : '🔄 Resend OTP'}
+                    </button>
+                  </>
+                )}
+              </div>
+
+              <button type="submit" className="btn-primary w-full" disabled={loading || canResend}>
                 {loading ? <Spinner size="sm" /> : 'Verify OTP'}
               </button>
-              <button type="button" onClick={() => setStep(0)} className="btn-ghost w-full">
+              <button type="button" onClick={() => { setStep(0); clearInterval(timerRef.current) }} className="btn-ghost w-full">
                 ← Back
               </button>
             </form>
