@@ -52,6 +52,7 @@ export default function RegisterPage() {
   const [error, setError] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
   const [userId, setUserId] = useState(null)
+  const [redirecting, setRedirecting] = useState(false)
 
   const [otpForm, setOtpForm] = useState({
     identifier: '', countryCode: '+91', otpType: 'PHONE', purpose: 'REGISTRATION', role: 'BORROWER'
@@ -74,7 +75,15 @@ export default function RegisterPage() {
       await sendOtp(otpForm)
       setStep(STEPS.VERIFY_OTP)
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.')
+      const msg = err.response?.data?.message || 'Failed to send OTP. Please try again.'
+      if (err.response?.status === 409) {
+        setError(msg)
+        setFieldErrors({ identifier: 'This number is already registered.' })
+        setRedirecting(true)
+        setTimeout(() => navigate('/login'), 3000)
+      } else {
+        setError(msg)
+      }
     } finally { setLoading(false) }
   }
 
@@ -111,7 +120,6 @@ export default function RegisterPage() {
       })
       navigate(`/${user.role.toLowerCase()}`)
     } catch (err) {
-      // Show backend validation errors if available
       const data = err.response?.data
       if (data?.errors && typeof data.errors === 'object') {
         setFieldErrors(data.errors)
@@ -184,6 +192,16 @@ export default function RegisterPage() {
           <Alert type="error" message={error} />
           {error && <div className="mb-4" />}
 
+          {/* Redirecting banner */}
+          {redirecting && (
+            <div className="mb-4 p-3 rounded-lg bg-gold-500/10 border border-gold-500/30 text-center">
+              <p className="text-gold-400 text-sm">Redirecting you to login in 3 seconds...</p>
+              <p className="text-ink-400 text-xs mt-1">
+                Or <button onClick={() => navigate('/login')} className="text-gold-400 underline">click here to login now</button>
+              </p>
+            </div>
+          )}
+
           {step === STEPS.SEND_OTP && (
             <form onSubmit={handleSendOtp} className="space-y-4">
               <Field label="I am a" required>
@@ -193,7 +211,7 @@ export default function RegisterPage() {
                   <option value="LENDER">Lender</option>
                 </select>
               </Field>
-              <Field label="Mobile Number" required error={fe.identifier}>
+              <Field label="Mobile Number" required>
                 <div className="flex gap-2">
                   <input className="input w-20" value="+91" readOnly />
                   <input className={`input flex-1 ${fe.identifier ? 'border-red-500' : ''}`}
@@ -202,7 +220,7 @@ export default function RegisterPage() {
                 </div>
                 {fe.identifier && <p className="text-xs text-red-400 mt-1">{fe.identifier}</p>}
               </Field>
-              <button type="submit" className="btn-primary w-full" disabled={loading}>
+              <button type="submit" className="btn-primary w-full" disabled={loading || redirecting}>
                 {loading ? <Spinner size="sm" /> : 'Send OTP'}
               </button>
               <p className="text-center text-sm text-ink-400">
@@ -214,7 +232,7 @@ export default function RegisterPage() {
 
           {step === STEPS.VERIFY_OTP && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <Field label="OTP Code" required error={fe.otpCode}>
+              <Field label="OTP Code" required>
                 <input className={`input text-center tracking-[0.5em] text-lg font-mono ${fe.otpCode ? 'border-red-500' : ''}`}
                   placeholder="123456" maxLength={6} value={otpCode}
                   onChange={e => setOtpCode(e.target.value)} />
