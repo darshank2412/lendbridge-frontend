@@ -16,6 +16,7 @@ import BorrowerKyc from './pages/borrower/Kyc'
 import BorrowerAccounts from './pages/borrower/Accounts'
 import LenderPreferencesBrowse from './pages/borrower/LenderPreferences'
 import RepaymentsPage from './pages/borrower/Repayments'
+import WalletPage from './pages/borrower/Wallet'
 
 // Lender pages
 import LenderDashboard from './pages/lender/Dashboard'
@@ -66,28 +67,30 @@ export default function App() {
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
 
-              {/* ── Borrower ── */}
+              {/* Borrower */}
               <Route path="/borrower"                    element={wrap(['BORROWER'], BorrowerDashboard)} />
               <Route path="/borrower/loan-requests"      element={wrap(['BORROWER'], BorrowerLoanRequests)} />
               <Route path="/borrower/new-request"        element={wrap(['BORROWER'], NewLoanRequest)} />
               <Route path="/borrower/kyc"                element={wrap(['BORROWER'], BorrowerKyc)} />
               <Route path="/borrower/accounts"           element={wrap(['BORROWER'], BorrowerAccounts)} />
+              <Route path="/borrower/wallet"             element={wrap(['BORROWER'], WalletPage)} />
               <Route path="/borrower/lender-preferences" element={wrap(['BORROWER'], LenderPreferencesBrowse)} />
               <Route path="/borrower/repayments"         element={wrap(['BORROWER'], RepaymentsPage)} />
               <Route path="/borrower/credit-score"       element={wrap(['BORROWER'], CreditScorePage)} />
               <Route path="/borrower/profile"            element={wrap(['BORROWER'], ProfilePage)} />
 
-              {/* ── Lender ── */}
+              {/* Lender */}
               <Route path="/lender"               element={wrap(['LENDER'], LenderDashboard)} />
               <Route path="/lender/preferences"   element={wrap(['LENDER'], LenderPreferences)} />
               <Route path="/lender/open-requests" element={wrap(['LENDER'], LenderOpenRequests)} />
               <Route path="/lender/matching"      element={wrap(['LENDER'], LenderMatchingRequests)} />
               <Route path="/lender/matched"       element={wrap(['LENDER'], LenderMatchedRequests)} />
               <Route path="/lender/accounts"      element={wrap(['LENDER'], BorrowerAccounts)} />
+              <Route path="/lender/wallet"        element={wrap(['LENDER'], WalletPage)} />
               <Route path="/lender/credit-score"  element={wrap(['LENDER'], CreditScorePage)} />
               <Route path="/lender/profile"       element={wrap(['LENDER'], ProfilePage)} />
 
-              {/* ── Admin ── */}
+              {/* Admin */}
               <Route path="/admin"                  element={wrap(['ADMIN'], AdminDashboard)} />
               <Route path="/admin/analytics"        element={wrap(['ADMIN'], AdminAnalytics)} />
               <Route path="/admin/loan-requests"    element={wrap(['ADMIN'], AdminLoanRequests)} />
