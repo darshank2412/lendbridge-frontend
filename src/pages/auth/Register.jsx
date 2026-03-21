@@ -10,12 +10,47 @@ const INCOME_BRACKETS = [
   'BELOW_2_LPA', '2_5_LPA', '5_10_LPA', '10_20_LPA', '20_50_LPA', 'ABOVE_50_LPA'
 ]
 
+function validateOtpForm(form) {
+  const errors = {}
+  if (!form.identifier) errors.identifier = 'Mobile number is required'
+  else if (!/^\d{10}$/.test(form.identifier)) errors.identifier = 'Enter a valid 10-digit mobile number'
+  return errors
+}
+
+function validateRegForm(form) {
+  const errors = {}
+  if (!form.firstName.trim()) errors.firstName = 'First name is required'
+  if (!form.lastName.trim()) errors.lastName = 'Last name is required'
+  if (!form.email.trim()) errors.email = 'Email is required'
+  else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) errors.email = 'Enter a valid email address'
+  if (!form.dateOfBirth) errors.dateOfBirth = 'Date of birth is required'
+  else {
+    const age = Math.floor((new Date() - new Date(form.dateOfBirth)) / (365.25 * 24 * 60 * 60 * 1000))
+    if (age < 18) errors.dateOfBirth = 'You must be at least 18 years old'
+  }
+  if (!form.pan.trim()) errors.pan = 'PAN number is required'
+  else if (!/^[A-Z]{5}[0-9]{4}[A-Z]{1}$/.test(form.pan)) errors.pan = 'Invalid PAN format (e.g. ABCDE1234F)'
+  if (!form.address.line1.trim()) errors.line1 = 'Address is required'
+  if (!form.address.city.trim()) errors.city = 'City is required'
+  if (!form.address.state.trim()) errors.state = 'State is required'
+  if (!form.address.pincode.trim()) errors.pincode = 'Pincode is required'
+  else if (!/^\d{6}$/.test(form.address.pincode)) errors.pincode = 'Enter valid 6-digit pincode'
+  if (!form.password) errors.password = 'Password is required'
+  else if (form.password.length < 8) errors.password = 'Minimum 8 characters required'
+  else if (!/[A-Z]/.test(form.password)) errors.password = 'Must contain at least one uppercase letter'
+  else if (!/[a-z]/.test(form.password)) errors.password = 'Must contain at least one lowercase letter'
+  else if (!/[0-9]/.test(form.password)) errors.password = 'Must contain at least one digit'
+  else if (!/[^A-Za-z0-9]/.test(form.password)) errors.password = 'Must contain at least one special character'
+  return errors
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
   const [step, setStep] = useState(STEPS.SEND_OTP)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [fieldErrors, setFieldErrors] = useState({})
   const [userId, setUserId] = useState(null)
 
   const [otpForm, setOtpForm] = useState({
@@ -31,17 +66,24 @@ export default function RegisterPage() {
 
   const handleSendOtp = async (e) => {
     e.preventDefault()
+    const errors = validateOtpForm(otpForm)
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setLoading(true); setError('')
     try {
       await sendOtp(otpForm)
       setStep(STEPS.VERIFY_OTP)
     } catch (err) {
-      setError(err.response?.data?.message || 'Failed to send OTP')
+      setError(err.response?.data?.message || 'Failed to send OTP. Please try again.')
     } finally { setLoading(false) }
   }
 
   const handleVerifyOtp = async (e) => {
     e.preventDefault()
+    if (!otpCode || otpCode.length !== 6) {
+      setFieldErrors({ otpCode: 'Enter the 6-digit OTP sent to your number' }); return
+    }
+    setFieldErrors({})
     setLoading(true); setError('')
     try {
       const res = await verifyOtp({ ...otpForm, otpCode })
@@ -50,12 +92,15 @@ export default function RegisterPage() {
       setRegForm(f => ({ ...f, role: otpForm.role, phoneNumber: otpForm.identifier }))
       setStep(STEPS.REGISTER)
     } catch (err) {
-      setError(err.response?.data?.message || 'Invalid OTP')
+      setError(err.response?.data?.message || 'Invalid OTP. Please try again.')
     } finally { setLoading(false) }
   }
 
   const handleRegister = async (e) => {
     e.preventDefault()
+    const errors = validateRegForm(regForm)
+    if (Object.keys(errors).length > 0) { setFieldErrors(errors); return }
+    setFieldErrors({})
     setLoading(true); setError('')
     try {
       const res = await register(userId, regForm)
@@ -66,9 +111,18 @@ export default function RegisterPage() {
       })
       navigate(`/${user.role.toLowerCase()}`)
     } catch (err) {
-      setError(err.response?.data?.message || 'Registration failed')
+      // Show backend validation errors if available
+      const data = err.response?.data
+      if (data?.errors && typeof data.errors === 'object') {
+        setFieldErrors(data.errors)
+        setError('Please fix the errors below.')
+      } else {
+        setError(data?.message || 'Registration failed. Please check your details.')
+      }
     } finally { setLoading(false) }
   }
+
+  const fe = fieldErrors
 
   return (
     <div className="min-h-screen bg-ink-950 flex">
@@ -139,12 +193,14 @@ export default function RegisterPage() {
                   <option value="LENDER">Lender</option>
                 </select>
               </Field>
-              <Field label="Mobile Number" required>
+              <Field label="Mobile Number" required error={fe.identifier}>
                 <div className="flex gap-2">
                   <input className="input w-20" value="+91" readOnly />
-                  <input className="input flex-1" placeholder="9876543210" value={otpForm.identifier}
+                  <input className={`input flex-1 ${fe.identifier ? 'border-red-500' : ''}`}
+                    placeholder="9876543210" value={otpForm.identifier}
                     onChange={e => setOtpForm(f => ({ ...f, identifier: e.target.value }))} />
                 </div>
+                {fe.identifier && <p className="text-xs text-red-400 mt-1">{fe.identifier}</p>}
               </Field>
               <button type="submit" className="btn-primary w-full" disabled={loading}>
                 {loading ? <Spinner size="sm" /> : 'Send OTP'}
@@ -158,12 +214,13 @@ export default function RegisterPage() {
 
           {step === STEPS.VERIFY_OTP && (
             <form onSubmit={handleVerifyOtp} className="space-y-4">
-              <Field label="OTP Code" required>
-                <input className="input text-center tracking-[0.5em] text-lg font-mono"
+              <Field label="OTP Code" required error={fe.otpCode}>
+                <input className={`input text-center tracking-[0.5em] text-lg font-mono ${fe.otpCode ? 'border-red-500' : ''}`}
                   placeholder="123456" maxLength={6} value={otpCode}
                   onChange={e => setOtpCode(e.target.value)} />
+                {fe.otpCode && <p className="text-xs text-red-400 mt-1">{fe.otpCode}</p>}
               </Field>
-              <p className="text-xs text-ink-400">Sent to {otpForm.identifier}</p>
+              <p className="text-xs text-ink-400">Sent to +91 {otpForm.identifier}</p>
               <button type="submit" className="btn-primary w-full" disabled={loading}>
                 {loading ? <Spinner size="sm" /> : 'Verify OTP'}
               </button>
@@ -177,22 +234,30 @@ export default function RegisterPage() {
             <form onSubmit={handleRegister} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
               <div className="grid grid-cols-2 gap-3">
                 <Field label="First Name" required>
-                  <input className="input" value={regForm.firstName}
+                  <input className={`input ${fe.firstName ? 'border-red-500' : ''}`}
+                    value={regForm.firstName}
                     onChange={e => setRegForm(f => ({ ...f, firstName: e.target.value }))} />
+                  {fe.firstName && <p className="text-xs text-red-400 mt-1">{fe.firstName}</p>}
                 </Field>
                 <Field label="Last Name" required>
-                  <input className="input" value={regForm.lastName}
+                  <input className={`input ${fe.lastName ? 'border-red-500' : ''}`}
+                    value={regForm.lastName}
                     onChange={e => setRegForm(f => ({ ...f, lastName: e.target.value }))} />
+                  {fe.lastName && <p className="text-xs text-red-400 mt-1">{fe.lastName}</p>}
                 </Field>
               </div>
               <Field label="Email" required>
-                <input className="input" type="email" value={regForm.email}
+                <input className={`input ${fe.email ? 'border-red-500' : ''}`}
+                  type="email" value={regForm.email}
                   onChange={e => setRegForm(f => ({ ...f, email: e.target.value }))} />
+                {fe.email && <p className="text-xs text-red-400 mt-1">{fe.email}</p>}
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Date of Birth" required>
-                  <input className="input" type="date" value={regForm.dateOfBirth}
+                  <input className={`input ${fe.dateOfBirth ? 'border-red-500' : ''}`}
+                    type="date" value={regForm.dateOfBirth}
                     onChange={e => setRegForm(f => ({ ...f, dateOfBirth: e.target.value }))} />
+                  {fe.dateOfBirth && <p className="text-xs text-red-400 mt-1">{fe.dateOfBirth}</p>}
                 </Field>
                 <Field label="Gender" required>
                   <select className="select" value={regForm.gender}
@@ -202,9 +267,10 @@ export default function RegisterPage() {
                 </Field>
               </div>
               <Field label="PAN Number" required>
-                <input className="input font-mono uppercase" placeholder="ABCDE1234F"
-                  value={regForm.pan}
+                <input className={`input font-mono uppercase ${fe.pan ? 'border-red-500' : ''}`}
+                  placeholder="ABCDE1234F" value={regForm.pan}
                   onChange={e => setRegForm(f => ({ ...f, pan: e.target.value.toUpperCase() }))} />
+                {fe.pan && <p className="text-xs text-red-400 mt-1">{fe.pan}</p>}
               </Field>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Income Bracket" required>
@@ -221,27 +287,39 @@ export default function RegisterPage() {
                 </Field>
               </div>
               <Field label="Address Line 1" required>
-                <input className="input" value={regForm.address.line1}
+                <input className={`input ${fe.line1 ? 'border-red-500' : ''}`}
+                  value={regForm.address.line1}
                   onChange={e => setRegForm(f => ({ ...f, address: { ...f.address, line1: e.target.value } }))} />
+                {fe.line1 && <p className="text-xs text-red-400 mt-1">{fe.line1}</p>}
               </Field>
               <div className="grid grid-cols-3 gap-2">
                 <Field label="City" required>
-                  <input className="input" value={regForm.address.city}
+                  <input className={`input ${fe.city ? 'border-red-500' : ''}`}
+                    value={regForm.address.city}
                     onChange={e => setRegForm(f => ({ ...f, address: { ...f.address, city: e.target.value } }))} />
+                  {fe.city && <p className="text-xs text-red-400 mt-1">{fe.city}</p>}
                 </Field>
                 <Field label="State" required>
-                  <input className="input" value={regForm.address.state}
+                  <input className={`input ${fe.state ? 'border-red-500' : ''}`}
+                    value={regForm.address.state}
                     onChange={e => setRegForm(f => ({ ...f, address: { ...f.address, state: e.target.value } }))} />
+                  {fe.state && <p className="text-xs text-red-400 mt-1">{fe.state}</p>}
                 </Field>
                 <Field label="Pincode" required>
-                  <input className="input" value={regForm.address.pincode}
+                  <input className={`input ${fe.pincode ? 'border-red-500' : ''}`}
+                    value={regForm.address.pincode}
                     onChange={e => setRegForm(f => ({ ...f, address: { ...f.address, pincode: e.target.value } }))} />
+                  {fe.pincode && <p className="text-xs text-red-400 mt-1">{fe.pincode}</p>}
                 </Field>
               </div>
               <Field label="Password" required>
-                <input className="input" type="password" value={regForm.password}
+                <input className={`input ${fe.password ? 'border-red-500' : ''}`}
+                  type="password" value={regForm.password}
                   onChange={e => setRegForm(f => ({ ...f, password: e.target.value }))} />
-                <span className="text-xs text-ink-500">Min 8 chars, uppercase, lowercase, digit, special char</span>
+                {fe.password
+                  ? <p className="text-xs text-red-400 mt-1">{fe.password}</p>
+                  : <span className="text-xs text-ink-500">Min 8 chars, uppercase, lowercase, digit, special char</span>
+                }
               </Field>
               <button type="submit" className="btn-primary w-full" disabled={loading}>
                 {loading ? <Spinner size="sm" /> : 'Create Account'}
