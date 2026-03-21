@@ -45,6 +45,54 @@ function validateRegForm(form) {
   return errors
 }
 
+function PasswordStrength({ password }) {
+  if (!password) return null
+  const checks = [
+    { pass: password.length >= 8, label: 'Min 8 characters' },
+    { pass: /[A-Z]/.test(password), label: 'Uppercase letter' },
+    { pass: /[a-z]/.test(password), label: 'Lowercase letter' },
+    { pass: /[0-9]/.test(password), label: 'Number' },
+    { pass: /[^A-Za-z0-9]/.test(password), label: 'Special character' },
+  ]
+  const score = checks.filter(c => c.pass).length
+  const labels = ['', 'Very Weak', 'Weak', 'Fair', 'Strong', 'Very Strong']
+  const barColors = ['', 'bg-red-500', 'bg-orange-500', 'bg-yellow-500', 'bg-blue-500', 'bg-green-500']
+  const textColors = ['', 'text-red-400', 'text-orange-400', 'text-yellow-400', 'text-blue-400', 'text-green-400']
+
+  return (
+    <div className="mt-2 space-y-2">
+      {/* Strength bar */}
+      <div className="flex gap-1">
+        {[1, 2, 3, 4, 5].map(i => (
+          <div key={i}
+            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${i <= score ? barColors[score] : 'bg-ink-700'}`}
+          />
+        ))}
+      </div>
+      <div className="flex items-center justify-between">
+        <p className={`text-xs font-medium ${textColors[score]}`}>
+          {labels[score]}
+        </p>
+        <p className="text-xs text-ink-500">{score}/5</p>
+      </div>
+
+      {/* Checklist */}
+      <div className="grid grid-cols-2 gap-1 pt-1">
+        {checks.map(({ pass, label }) => (
+          <div key={label} className="flex items-center gap-1.5">
+            <span className={`text-xs font-bold ${pass ? 'text-green-400' : 'text-ink-600'}`}>
+              {pass ? '✓' : '○'}
+            </span>
+            <span className={`text-xs ${pass ? 'text-green-400' : 'text-ink-500'}`}>
+              {label}
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 export default function RegisterPage() {
   const navigate = useNavigate()
   const { login } = useAuthStore()
@@ -169,13 +217,7 @@ export default function RegisterPage() {
   }
 
   const fe = fieldErrors
-
-  // Timer color based on time left
-  const timerColor = timer <= 10
-    ? 'text-red-400'
-    : timer <= 30
-    ? 'text-yellow-400'
-    : 'text-gold-400'
+  const timerColor = timer <= 10 ? 'text-red-400' : timer <= 30 ? 'text-yellow-400' : 'text-gold-400'
 
   return (
     <div className="min-h-screen bg-ink-950 flex">
@@ -410,15 +452,16 @@ export default function RegisterPage() {
                   {fe.pincode && <p className="text-xs text-red-400 mt-1">{fe.pincode}</p>}
                 </Field>
               </div>
+
+              {/* Password with strength indicator */}
               <Field label="Password" required>
                 <input className={`input ${fe.password ? 'border-red-500' : ''}`}
                   type="password" value={regForm.password}
                   onChange={e => setRegForm(f => ({ ...f, password: e.target.value }))} />
-                {fe.password
-                  ? <p className="text-xs text-red-400 mt-1">{fe.password}</p>
-                  : <span className="text-xs text-ink-500">Min 8 chars, uppercase, lowercase, digit, special char</span>
-                }
+                <PasswordStrength password={regForm.password} />
+                {fe.password && <p className="text-xs text-red-400 mt-1">{fe.password}</p>}
               </Field>
+
               <button type="submit" className="btn-primary w-full" disabled={loading}>
                 {loading ? <Spinner size="sm" /> : 'Create Account'}
               </button>
