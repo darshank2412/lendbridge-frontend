@@ -11,11 +11,10 @@ import {
 import { generateAmortization, calculateEmi, formatINR, formatDate, round2 } from '../../utils/emi'
 import clsx from 'clsx'
 
-/* ── EMI status helper ──────────────────────────────────── */
 function emiStatus(emi, paidSet) {
   if (paidSet.has(emi.emiNumber)) return 'PAID'
   const today = new Date()
-  const due   = new Date(emi.dueDate)
+  const due = new Date(emi.dueDate)
   return due < today ? 'OVERDUE' : 'PENDING'
 }
 
@@ -35,9 +34,9 @@ export default function RepaymentsPage() {
   const [earlyModal, setEarlyModal] = useState(false)
   const [partialAmount, setPartialAmount] = useState('')
   const [error, setError] = useState('')
-  const [paidEmis] = useState(new Set()) // will come from API when wired
+  const [paidEmis] = useState(new Set())
+  const [downloading, setDownloading] = useState(false)
 
-  /* Fetch disbursed loan requests */
   const { data: loansRes, isLoading } = useQuery({
     queryKey: ['my-loan-requests', userId],
     queryFn: () => getMyLoanRequests(userId),
@@ -46,7 +45,6 @@ export default function RepaymentsPage() {
 
   const disbursedLoans = (loansRes?.data?.data || []).filter(l => l.status === 'DISBURSED')
 
-  /* Early closure quote */
   const { data: quoteRes } = useQuery({
     queryKey: ['early-quote', selectedLoan?.id],
     queryFn: () => getEarlyClosureQuote(selectedLoan.id),
@@ -66,11 +64,33 @@ export default function RepaymentsPage() {
     onError: e => setError(e.response?.data?.message || 'Early closure failed'),
   })
 
+  const handleDownloadAgreement = async () => {
+    setDownloading(true)
+    try {
+      const token = useAuthStore.getState().token
+      const res = await fetch(
+        `https://lendbridge-backend.onrender.com/loans/${selectedLoan.id}/agreement`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      )
+      if (!res.ok) throw new Error('Failed')
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `LoanAgreement-${selectedLoan.id}.pdf`
+      a.click()
+      window.URL.revokeObjectURL(url)
+    } catch (e) {
+      alert('Failed to download agreement. Please try again.')
+    } finally {
+      setDownloading(false)
+    }
+  }
+
   if (isLoading) return <PageLoader />
 
-  /* If a loan is selected, show its full amortization */
   if (selectedLoan) {
-    const ANNUAL_RATE = 12 // placeholder — real rate from API
+    const ANNUAL_RATE = 12
     const schedule = generateAmortization(selectedLoan.amount, ANNUAL_RATE, selectedLoan.tenureMonths)
     const emi = calculateEmi(selectedLoan.amount, ANNUAL_RATE, selectedLoan.tenureMonths)
     const paidCount = paidEmis.size
@@ -137,6 +157,13 @@ export default function RepaymentsPage() {
             onClick={() => { setEarlyModal(true); setError('') }}
           >
             ⚡ Early Closure
+          </button>
+          <button
+            className="flex-1 py-2 px-4 rounded-xl border border-gold-500/30 text-gold-400 text-sm font-medium hover:bg-gold-500/10 transition-all disabled:opacity-50"
+            onClick={handleDownloadAgreement}
+            disabled={downloading}
+          >
+            {downloading ? '⏳ Downloading...' : '📄 Loan Agreement'}
           </button>
         </div>
 
