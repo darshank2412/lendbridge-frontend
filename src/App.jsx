@@ -5,6 +5,7 @@ import { ToastProvider, ErrorBoundary } from './components/ui/ErrorHandling'
 
 import LoginPage from './pages/auth/Login'
 import RegisterPage from './pages/auth/Register'
+import LandingPage from './pages/Landing'
 import ProtectedRoute from './components/shared/ProtectedRoute'
 import DashboardLayout from './components/shared/DashboardLayout'
 
@@ -63,7 +64,8 @@ export default function App() {
           <BrowserRouter>
             <Routes>
               {/* Public */}
-              <Route path="/" element={<RootRedirect />} />
+              <Route path="/" element={<LandingPage />} />
+              <Route path="/home" element={<RootRedirect />} />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/register" element={<RegisterPage />} />
 
