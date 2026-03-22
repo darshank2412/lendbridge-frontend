@@ -132,12 +132,8 @@ export default function WalletPage() {
   const savingsAccount = accounts.find(a => a.accountType === 'SAVINGS')
   const totalBalance = accounts.reduce((sum, a) => sum + (parseFloat(a.balance) || 0), 0)
 
-  const mockTransactions = [
-    { id: 1, type: 'credit', amount: 50000, description: 'Loan Disbursement', date: 'Today, 10:30 AM', status: 'Completed' },
-    { id: 2, type: 'debit', amount: 4500, description: 'EMI Payment - Month 1', date: 'Yesterday, 9:00 AM', status: 'Completed' },
-    { id: 3, type: 'credit', amount: 10000, description: 'Deposit', date: '2 days ago', status: 'Completed' },
-    { id: 4, type: 'debit', amount: 4500, description: 'EMI Payment - Month 2', date: '3 days ago', status: 'Completed' },
-  ]
+  const mockTransactions = []
+   
 
   const txMutation = useMutation({
     mutationFn: () => txModal.type === 'deposit'
@@ -215,9 +211,17 @@ export default function WalletPage() {
       {/* Transaction History */}
       <div className="card p-5">
         <h3 className="font-display font-semibold text-ink-100 mb-4">Transaction History</h3>
-        {mockTransactions.map(tx => (
-          <TransactionItem key={tx.id} {...tx} />
-        ))}
+        
+{mockTransactions.length === 0 ? (
+  <div className="text-center py-8">
+    <p className="text-ink-500 text-sm">No transactions yet</p>
+    <p className="text-ink-600 text-xs mt-1">Transactions will appear here after deposits, withdrawals or EMI payments</p>
+  </div>
+) : (
+  mockTransactions.map(tx => (
+    <TransactionItem key={tx.id} {...tx} />
+  ))
+)}
       </div>
 
       {/* Deposit/Withdraw Modal */}
